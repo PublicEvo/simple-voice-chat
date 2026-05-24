@@ -2,6 +2,7 @@ package de.maxhenkel.voicechat.net;
 
 import de.maxhenkel.voicechat.Voicechat;
 import de.maxhenkel.voicechat.util.FriendlyByteBuf;
+import de.maxhenkel.voicechat.voice.common.PlayerState;
 import io.netty.buffer.Unpooled;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -38,6 +39,9 @@ public class NetManager implements Listener {
             registerOutgoingPacket(JoinedGroupPacket.class);
             registerOutgoingPacket(AddCategoryPacket.class);
             registerOutgoingPacket(RemoveCategoryPacket.class);
+
+            Bukkit.getMessenger().registerOutgoingPluginChannel(Voicechat.INSTANCE, "voicechat:player_states");
+            Bukkit.getMessenger().registerOutgoingPluginChannel(Voicechat.INSTANCE, "voicechat:player_state");
         } catch (Exception e) {
             throw new IllegalStateException("Failed to register voice chat packets", e);
         }
@@ -111,10 +115,25 @@ public class NetManager implements Listener {
             }
             try {
                 FriendlyByteBuf buf = new FriendlyByteBuf();
-                p.toBytes(buf);
+                Packet<?> packetToSend = p;
+                String channelId = p.getID().toString();
+                int compatibilityVersion = Voicechat.SERVER.getCompatibilityVersion(player.getUniqueId());
+                if (compatibilityVersion <= 18) {
+                    if (p instanceof PlayerStatesPacket) {
+                        channelId = "voicechat:player_states";
+                    } else if (p instanceof PlayerStatePacket) {
+                        channelId = "voicechat:player_state";
+                    } else if (p instanceof RemovePlayerStatePacket) {
+                        RemovePlayerStatePacket removePacket = (RemovePlayerStatePacket) p;
+                        PlayerState dummyState = new PlayerState(removePacket.getId(), "", false, true);
+                        packetToSend = new PlayerStatePacket(dummyState);
+                        channelId = "voicechat:player_state";
+                    }
+                }
+                packetToSend.toBytes(buf);
                 byte[] bytes = new byte[buf.readableBytes()];
                 buf.readBytes(bytes);
-                player.sendPluginMessage(Voicechat.INSTANCE, p.getID().toString(), bytes);
+                player.sendPluginMessage(Voicechat.INSTANCE, channelId, bytes);
             } catch (Exception e) {
                 Voicechat.LOGGER.error("Failed to send packet to '{}'", player.getName(), e);
             }
