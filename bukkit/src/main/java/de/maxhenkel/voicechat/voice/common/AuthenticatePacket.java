@@ -1,5 +1,6 @@
 package de.maxhenkel.voicechat.voice.common;
 
+import de.maxhenkel.voicechat.Voicechat;
 import de.maxhenkel.voicechat.util.FriendlyByteBuf;
 
 import java.util.UUID;
@@ -30,7 +31,9 @@ public class AuthenticatePacket implements Packet<AuthenticatePacket> {
     public AuthenticatePacket fromBytes(FriendlyByteBuf buf) {
         AuthenticatePacket packet = new AuthenticatePacket();
         packet.playerUUID = buf.readUUID();
-        packet.secret = Secret.fromBytes(buf);
+        int version = Voicechat.SERVER != null ? Voicechat.SERVER.getCompatibilityVersion(packet.playerUUID) : -1;
+        int size = Secret.getSecretSize(version);
+        packet.secret = Secret.fromBytes(buf, size);
         return packet;
     }
 

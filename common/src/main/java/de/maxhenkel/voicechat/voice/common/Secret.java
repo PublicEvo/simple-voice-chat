@@ -32,7 +32,11 @@ public class Secret {
     }
 
     public static Secret generateNewRandomSecret() {
-        byte[] secret = new byte[SECRET_SIZE_BYTES];
+        return generateNewRandomSecret(SECRET_SIZE_BYTES);
+    }
+
+    public static Secret generateNewRandomSecret(int size) {
+        byte[] secret = new byte[size];
         RANDOM.nextBytes(secret);
         return new Secret(secret);
     }
@@ -42,9 +46,21 @@ public class Secret {
     }
 
     public static Secret fromBytes(ByteBuf buf) {
-        byte[] secretBytes = new byte[SECRET_SIZE_BYTES];
+        return fromBytes(buf, SECRET_SIZE_BYTES);
+    }
+
+    public static Secret fromBytes(ByteBuf buf, int size) {
+        byte[] secretBytes = new byte[size];
         buf.readBytes(secretBytes);
         return Secret.fromBytes(secretBytes);
+    }
+
+    public static int getSecretSize(int compatibilityVersion) {
+        if (compatibilityVersion >= 20) {
+            return 16;
+        } else {
+            return 32;
+        }
     }
 
     public void toBytes(ByteBuf buf) {

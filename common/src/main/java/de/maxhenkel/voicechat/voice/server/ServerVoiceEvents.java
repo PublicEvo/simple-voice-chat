@@ -45,7 +45,7 @@ public class ServerVoiceEvents {
         CommonCompatibilityManager.INSTANCE.getNetManager().requestSecretChannel.setServerListener((player, packet) -> {
             Voicechat.LOGGER.info("Received secret request of {} ({})", player.getName().getString(), packet.getCompatibilityVersion());
             clientCompatibilities.put(player.getUUID(), packet.getCompatibilityVersion());
-            if (packet.getCompatibilityVersion() != Voicechat.COMPATIBILITY_VERSION) {
+            if (packet.getCompatibilityVersion() != Voicechat.COMPATIBILITY_VERSION && packet.getCompatibilityVersion() != 18 && packet.getCompatibilityVersion() != 19) {
                 Voicechat.LOGGER.warn("Connected client {} has incompatible voice chat version (server={}, client={})", player.getName().getString(), Voicechat.COMPATIBILITY_VERSION, packet.getCompatibilityVersion());
                 player.sendSystemMessage(getIncompatibleMessage(packet.getCompatibilityVersion()));
             } else {
@@ -70,7 +70,12 @@ public class ServerVoiceEvents {
     }
 
     public boolean isCompatible(UUID playerUuid) {
-        return clientCompatibilities.getOrDefault(playerUuid, -1) == Voicechat.COMPATIBILITY_VERSION;
+        int version = clientCompatibilities.getOrDefault(playerUuid, -1);
+        return version == Voicechat.COMPATIBILITY_VERSION || version == 18 || version == 19;
+    }
+
+    public int getCompatibilityVersion(UUID playerUuid) {
+        return clientCompatibilities.getOrDefault(playerUuid, -1);
     }
 
     public void serverStarting(MinecraftServer mcServer) {

@@ -196,7 +196,8 @@ public class Server extends Thread {
         if (hasSecret(playerUUID)) {
             return secrets.get(playerUUID);
         } else {
-            Secret secret = Secret.generateNewRandomSecret();
+            int version = Voicechat.SERVER != null ? Voicechat.SERVER.getCompatibilityVersion(playerUUID) : -1;
+            Secret secret = Secret.generateNewRandomSecret(Secret.getSecretSize(version));
             secrets.put(playerUUID, secret);
             return secret;
         }

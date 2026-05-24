@@ -63,7 +63,7 @@ public class ServerVoiceEvents implements Listener {
         }
 
         clientCompatibilities.put(playerUUID, packet.getCompatibilityVersion());
-        if (packet.getCompatibilityVersion() != Voicechat.COMPATIBILITY_VERSION) {
+        if (packet.getCompatibilityVersion() != Voicechat.COMPATIBILITY_VERSION && packet.getCompatibilityVersion() != 18 && packet.getCompatibilityVersion() != 19) {
             Voicechat.LOGGER.warn("Connected client {} has incompatible voice chat version (server={}, client={})", player.getName(), Voicechat.COMPATIBILITY_VERSION, packet.getCompatibilityVersion());
             sendIncompatibleMessage(player, packet.getCompatibilityVersion());
         } else {
@@ -76,7 +76,12 @@ public class ServerVoiceEvents implements Listener {
     }
 
     public boolean isCompatible(UUID playerUuid) {
-        return clientCompatibilities.getOrDefault(playerUuid, -1) == Voicechat.COMPATIBILITY_VERSION;
+        int version = clientCompatibilities.getOrDefault(playerUuid, -1);
+        return version == Voicechat.COMPATIBILITY_VERSION || version == 18 || version == 19;
+    }
+
+    public int getCompatibilityVersion(UUID playerUuid) {
+        return clientCompatibilities.getOrDefault(playerUuid, -1);
     }
 
     public static void sendIncompatibleMessage(Player player, int clientCompatibilityVersion) {
