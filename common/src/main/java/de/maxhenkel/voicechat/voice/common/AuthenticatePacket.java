@@ -33,7 +33,7 @@ public class AuthenticatePacket implements Packet<AuthenticatePacket> {
         packet.playerUUID = buf.readUUID();
         int version = Voicechat.SERVER != null ? Voicechat.SERVER.getCompatibilityVersion(packet.playerUUID) : -1;
         int size = Secret.getSecretSize(version);
-        packet.secret = Secret.fromBytes(buf, size);
+        packet.secret = Secret.fromBytes(buf, size, version);
         return packet;
     }
 
