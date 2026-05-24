@@ -14,6 +14,9 @@ import org.bukkit.Bukkit;
 
 import java.util.HashSet;
 import java.util.Set;
+import de.maxhenkel.voicechat.net.PlayerStatesPacket;
+import de.maxhenkel.voicechat.net.PlayerStatePacket;
+import de.maxhenkel.voicechat.net.RemovePlayerStatePacket;
 
 public class PaperNetManager extends NetManager {
 
@@ -21,6 +24,8 @@ public class PaperNetManager extends NetManager {
 
     public PaperNetManager() {
         packets = new HashSet<>();
+        Bukkit.getMessenger().registerOutgoingPluginChannel(VoicechatPaperPlugin.INSTANCE, "voicechat:player_states");
+        Bukkit.getMessenger().registerOutgoingPluginChannel(VoicechatPaperPlugin.INSTANCE, "voicechat:player_state");
     }
 
     public Set<Identifier> getPackets() {
@@ -69,10 +74,25 @@ public class PaperNetManager extends NetManager {
     public void sendToClient(Packet<?> packet, ServerPlayer player) {
         Bukkit.getGlobalRegionScheduler().run(VoicechatPaperPlugin.INSTANCE, (t) -> {
             FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
-            packet.toBytes(buffer);
+            Packet<?> packetToSend = packet;
+            Identifier id = packet.type().id();
+            int compatibilityVersion = Voicechat.SERVER.getCompatibilityVersion(player.getUUID());
+            if (compatibilityVersion <= 18) {
+                if (packet instanceof PlayerStatesPacket) {
+                    id = Identifier.fromNamespaceAndPath(Voicechat.MODID, "player_states");
+                } else if (packet instanceof PlayerStatePacket) {
+                    id = Identifier.fromNamespaceAndPath(Voicechat.MODID, "player_state");
+                } else if (packet instanceof RemovePlayerStatePacket) {
+                    RemovePlayerStatePacket removePacket = (RemovePlayerStatePacket) packet;
+                    de.maxhenkel.voicechat.voice.common.PlayerState dummyState = new de.maxhenkel.voicechat.voice.common.PlayerState(removePacket.getId(), "", false, true);
+                    packetToSend = new PlayerStatePacket(dummyState);
+                    id = Identifier.fromNamespaceAndPath(Voicechat.MODID, "player_state");
+                }
+            }
+            packetToSend.toBytes(buffer);
             byte[] bytes = new byte[buffer.readableBytes()];
             buffer.readBytes(bytes);
-            player.connection.send(new ClientboundCustomPayloadPacket(new DiscardedPayload(packet.type().id(), bytes)));
+            player.connection.send(new ClientboundCustomPayloadPacket(new DiscardedPayload(id, bytes)));
         });
     }
 
