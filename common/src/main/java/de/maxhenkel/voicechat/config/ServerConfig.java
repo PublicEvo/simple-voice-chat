@@ -20,6 +20,7 @@ public class ServerConfig {
     public ConfigEntry<Integer> keepAlive;
     public ConfigEntry<Boolean> groupsEnabled;
     public ConfigEntry<String> voiceHost;
+    public ConfigEntry<String> forcedHosts;
     public ConfigEntry<Boolean> allowRecording;
     public ConfigEntry<Boolean> spectatorInteraction;
     public ConfigEntry<Boolean> spectatorPlayerPossession;
@@ -88,6 +89,12 @@ public class ServerConfig {
                         "The hostname that clients should use to connect to the voice chat",
                         "This may also include a port, e.g. 'example.com:24454' or just a port, e.g. '24454'",
                         "Do NOT change this value if you don't know what you're doing"
+                );
+        forcedHosts = builder
+                .stringEntry("forced_hosts", "",
+                        "Forced voice hosts based on the Minecraft server address the player connected with.",
+                        "Format: 'minecraftHost=voiceHost,minecraftHost2=voiceHost2'",
+                        "Example: 'publicevo.online=voice.publicevo.online:24454,fallback.publicevo.online=voice-fallback.publicevo.online:24454'"
                 );
         allowRecording = builder
                 .booleanEntry("allow_recording", true,

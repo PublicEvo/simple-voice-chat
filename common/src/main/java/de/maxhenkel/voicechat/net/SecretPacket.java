@@ -39,7 +39,46 @@ public class SecretPacket implements Packet<SecretPacket> {
         this.voiceChatDistance = serverConfig.voiceChatDistance.get();
         this.keepAlive = serverConfig.keepAlive.get();
         this.groupsEnabled = serverConfig.groupsEnabled.get();
-        this.voiceHost = PluginManager.instance().getVoiceHost(player, serverConfig.voiceHost.get());
+        
+        String resolvedVoiceHost = serverConfig.voiceHost.get();
+        String connectedHost = "unknown";
+        try {
+            // Retrieve Bukkit Entity (Player) from NMS ServerPlayer via reflection if on Bukkit/Spigot/Paper
+            Object bukkitPlayer = null;
+            try {
+                java.lang.reflect.Method getBukkitEntityMethod = player.getClass().getMethod("getBukkitEntity");
+                bukkitPlayer = getBukkitEntityMethod.invoke(player);
+            } catch (Exception ignored) {}
+
+            if (bukkitPlayer != null) {
+                java.lang.reflect.Method getVirtualHostMethod = bukkitPlayer.getClass().getMethod("getVirtualHost");
+                java.net.InetSocketAddress virtualHost = (java.net.InetSocketAddress) getVirtualHostMethod.invoke(bukkitPlayer);
+                if (virtualHost != null) {
+                    connectedHost = virtualHost.getHostString().toLowerCase().split("\u0000")[0].split("\0")[0].split(":")[0].trim();
+                    String forcedHostsVal = serverConfig.forcedHosts.get();
+                    if (forcedHostsVal != null && !forcedHostsVal.isEmpty()) {
+                        forcedHostsVal = forcedHostsVal.replace("\"", "").replace("'", "").trim();
+                        String[] entries = forcedHostsVal.split(",");
+                        for (String entry : entries) {
+                            String[] parts = entry.split("=", 2);
+                            if (parts.length == 2) {
+                                String mcHost = parts[0].replace("\"", "").replace("'", "").trim().toLowerCase();
+                                String voiceHostVal = parts[1].replace("\"", "").replace("'", "").trim();
+                                if (connectedHost.equals(mcHost) || connectedHost.endsWith("." + mcHost)) {
+                                    resolvedVoiceHost = voiceHostVal;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // Ignore / fallback to default voice_host
+        }
+        
+        Voicechat.LOGGER.info("[voicechat] Player {} connected via host: '{}', resolved voice host: '{}'", player.getName().getString(), connectedHost, resolvedVoiceHost);
+        this.voiceHost = PluginManager.instance().getVoiceHost(player, resolvedVoiceHost);
         this.allowRecording = serverConfig.allowRecording.get();
     }
 
