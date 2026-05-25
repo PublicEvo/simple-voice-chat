@@ -94,6 +94,40 @@ public class ServerVoiceEvents implements Listener {
         }
     }
 
+
+    private String resolveVoiceHost(Player player, String configuredVoiceHost) {
+        String resolvedVoiceHost = configuredVoiceHost;
+        String connectedHost = "unknown";
+        try {
+            java.lang.reflect.Method getVirtualHostMethod = player.getClass().getMethod("getVirtualHost");
+            java.net.InetSocketAddress virtualHost = (java.net.InetSocketAddress) getVirtualHostMethod.invoke(player);
+            if (virtualHost != null) {
+                connectedHost = virtualHost.getHostString().toLowerCase().split("\u0000")[0].split(":")[0].trim();
+                String forcedHostsVal = Voicechat.SERVER_CONFIG.forcedHosts.get();
+                if (forcedHostsVal != null && !forcedHostsVal.isEmpty()) {
+                    forcedHostsVal = forcedHostsVal.replace("\"", "").replace("'", "").trim();
+                    String[] entries = forcedHostsVal.split(",");
+                    for (String entry : entries) {
+                        String[] parts = entry.split("=", 2);
+                        if (parts.length == 2) {
+                            String mcHost = parts[0].replace("\"", "").replace("'", "").trim().toLowerCase();
+                            String voiceHostVal = parts[1].replace("\"", "").replace("'", "").trim();
+                            if (connectedHost.equals(mcHost) || connectedHost.endsWith("." + mcHost)) {
+                                resolvedVoiceHost = voiceHostVal;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // Ignore / fallback to default voice_host
+        }
+
+        Voicechat.LOGGER.info("[voicechat] Player {} connected via host: '{}', resolved voice host: '{}'", player.getName(), connectedHost, resolvedVoiceHost);
+        return resolvedVoiceHost;
+    }
+
     public void initializePlayerConnection(Player player) {
         if (server == null) {
             return;
@@ -108,7 +142,8 @@ public class ServerVoiceEvents implements Listener {
             return;
         }
 
-        String voiceHost = PluginManager.instance().getVoiceHost(player, Voicechat.SERVER_CONFIG.voiceHost.get());
+        String configuredVoiceHost = resolveVoiceHost(player, Voicechat.SERVER_CONFIG.voiceHost.get());
+        String voiceHost = PluginManager.instance().getVoiceHost(player, configuredVoiceHost);
         NetManager.sendToClient(player, new SecretPacket(player, secret, server.getPort(), Voicechat.SERVER_CONFIG, voiceHost));
         Voicechat.LOGGER.info("Sent secret to {}", player.getName());
     }
