@@ -10,5 +10,22 @@ pluginManagement {
     }
 }
 
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
+    repositories {
+        mavenCentral()
+        maven { url = 'https://libraries.minecraft.net' }
+        maven { url = 'https://maven.fabricmc.net/' }
+        maven { url = 'https://maven.maxhenkel.de/repository/public' }
+        maven { url = 'https://repo.panda-lang.org/releases' }
+        maven { url = 'https://repo.papermc.io/repository/maven-public/' }
+        maven { url = 'https://oss.sonatype.org/content/repositories/snapshots' }
+        maven { url = 'https://maven.terraformersmc.com/releases' }
+        maven { url = 'https://maven.shedaniel.me/' }
+        maven { url = 'https://repo.viaversion.com/' }
+        maven { url = 'https://api.modrinth.com/maven' }
+    }
+}
+
 rootProject.name = 'voicechat'
 include('api', 'common', 'common-client', 'common-proxy', 'fabric', 'fabric:api-stub', /*'neoforge', 'forge', */'bukkit', /*'paper', */'velocity', 'bungeecord')
