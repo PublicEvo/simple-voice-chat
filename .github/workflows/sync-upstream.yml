@@ -1,0 +1,75 @@
+name: Sync with Upstream
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    name: Sync with henkelmax/simple-voice-chat
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "Shrek617"
+          git config user.email "vityabrinecraft@gmail.com"
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/henkelmax/simple-voice-chat.git || true
+          git fetch upstream
+
+      - name: Find latest upstream version branch
+        id: latest
+        run: |
+          LATEST=$(git branch -r | grep 'upstream/' | grep -oE '[0-9]+\.[0-9]+$' | sort -V | tail -1)
+          echo "Latest upstream version: $LATEST"
+          echo "version=$LATEST" >> $GITHUB_OUTPUT
+
+      - name: Get current branch
+        id: current
+        run: |
+          CURRENT=$(git branch --show-current)
+          echo "Current branch: $CURRENT"
+          echo "branch=$CURRENT" >> $GITHUB_OUTPUT
+
+      - name: Sync or create new branch
+        run: |
+          LATEST="${{ steps.latest.outputs.version }}"
+          CURRENT="${{ steps.current.outputs.branch }}"
+
+          if [ "$LATEST" != "$CURRENT" ]; then
+            echo "New version detected: $LATEST (current: $CURRENT)"
+
+            # Check if local branch exists
+            if git show-ref --verify --quiet refs/heads/$LATEST; then
+              echo "Switching to existing branch $LATEST"
+              git checkout $LATEST
+            else
+              echo "Creating new branch $LATEST from upstream"
+              git checkout -b $LATEST upstream/$LATEST
+            fi
+          else
+            echo "Already on latest version: $LATEST"
+          fi
+
+          # Merge upstream changes
+          git merge upstream/$LATEST --no-edit || {
+            echo "Merge conflict detected. Please resolve manually."
+            exit 1
+          }
+
+      - name: Push changes
+        run: |
+          LATEST="${{ steps.latest.outputs.version }}"
+          git push origin $LATEST
