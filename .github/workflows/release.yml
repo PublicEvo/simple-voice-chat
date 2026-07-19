@@ -38,8 +38,13 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Build with Gradle
-        run: ./gradlew build --no-daemon
+      - name: Build with Gradle (with retries)
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 15
+          max_attempts: 3
+          retry_wait_seconds: 30
+          command: ./gradlew build --no-daemon --refresh-dependencies
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
