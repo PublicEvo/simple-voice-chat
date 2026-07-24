@@ -45,6 +45,7 @@ jobs:
           echo "branch=$CURRENT" >> $GITHUB_OUTPUT
 
       - name: Sync or create new branch
+        id: sync
         run: |
           LATEST="${{ steps.latest.outputs.version }}"
           CURRENT="${{ steps.current.outputs.branch }}"
@@ -70,13 +71,24 @@ jobs:
             exit 1
           }
 
+          # Build only when the branch differs from what origin already has
+          if git rev-parse --verify --quiet origin/$LATEST >/dev/null \
+            && [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/$LATEST)" ]; then
+            echo "Already up to date, nothing to build"
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "Upstream brought new changes"
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Push changes
+        if: steps.sync.outputs.changed == 'true'
         run: |
           LATEST="${{ steps.latest.outputs.version }}"
           git push origin $LATEST
 
       - name: Trigger build workflow
-        if: success()
+        if: steps.sync.outputs.changed == 'true'
         uses: actions/github-script@v9.0.0
         with:
           script: |
