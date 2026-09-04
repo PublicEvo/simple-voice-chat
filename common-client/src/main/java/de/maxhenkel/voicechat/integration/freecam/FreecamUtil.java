@@ -2,33 +2,27 @@ package de.maxhenkel.voicechat.integration.freecam;
 
 import de.maxhenkel.voicechat.VoicechatClient;
 import de.maxhenkel.voicechat.voice.client.PositionalAudioUtils;
-import net.minecraft.client.Minecraft;
+import de.maxhenkel.voicechat.voice.client.camera.CameraState;
 import net.minecraft.world.phys.Vec3;
 
 public class FreecamUtil {
 
-    private static final Minecraft mc = Minecraft.getInstance();
-
     /**
+     * @param camera the camera to check
      * @return whether freecam is currently in use
      */
-    public static boolean isFreecamEnabled() {
-        if (mc.player == null) {
-            return false;
-        }
-        return VoicechatClient.CLIENT_CONFIG.freecamMode.get().equals(FreecamMode.PLAYER) && !(mc.player.isSpectator() || mc.player.equals(mc.getCameraEntity()));
+    public static boolean isFreecamEnabled(CameraState camera) {
+        return VoicechatClient.CLIENT_CONFIG.freecamMode.get().equals(FreecamMode.PLAYER) && !camera.spectator() && camera.detached();
     }
 
     /**
      * Gets the proximity reference point. Unless freecam is active, this is the main camera's position.
      *
+     * @param camera the camera to measure from
      * @return the position distances should be measured from
      */
-    public static Vec3 getReferencePoint() {
-        if (mc.player == null) {
-            return Vec3.ZERO;
-        }
-        return isFreecamEnabled() ? mc.player.getEyePosition() : mc.gameRenderer.mainCamera().position();
+    public static Vec3 getReferencePoint(CameraState camera) {
+        return isFreecamEnabled(camera) ? camera.playerEyePosition() : camera.position();
     }
 
     /**
@@ -36,11 +30,12 @@ public class FreecamUtil {
      * <p>
      * Distance is relative to either the player or camera, depending on whether freecam is enabled.
      *
-     * @param pos the position to be measured
+     * @param camera the camera to measure from
+     * @param pos    the position to be measured
      * @return the distance to the position
      */
-    public static double getDistanceTo(Vec3 pos) {
-        return getReferencePoint().distanceTo(pos);
+    public static double getDistanceTo(CameraState camera, Vec3 pos) {
+        return getReferencePoint(camera).distanceTo(pos);
     }
 
     /**
@@ -48,11 +43,12 @@ public class FreecamUtil {
      * <p>
      * Distance is relative to either the player or camera, depending on whether freecam is enabled.
      *
+     * @param camera      the camera to measure from
      * @param maxDistance the maximum distance of the sound
      * @param pos         the position of the audio
      * @return the resulting audio volume
      */
-    public static float getDistanceVolume(float maxDistance, Vec3 pos) {
-        return PositionalAudioUtils.getDistanceVolume(maxDistance, getReferencePoint(), pos);
+    public static float getDistanceVolume(CameraState camera, float maxDistance, Vec3 pos) {
+        return PositionalAudioUtils.getDistanceVolume(maxDistance, getReferencePoint(camera), pos);
     }
 }

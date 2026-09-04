@@ -10,7 +10,6 @@ import de.maxhenkel.voicechat.util.BackendServer;
 import de.maxhenkel.voicechat.util.PingManager;
 
 import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
@@ -44,7 +43,7 @@ public abstract class VoiceProxy {
      * Determine which SocketAddress is used by the player to communicate with the game server
      *
      * @param playerUUID Which player to find the socket for
-     * @return The SocketAddress used for game traffic between the game server and the proxy
+     * @return The SocketAddress used for game traffic between the game server and the proxy, which may be unresolved, <code>null</code> if the player is not connected to a backend server
      */
     public abstract InetSocketAddress getDefaultBackendSocket(UUID playerUUID);
 
@@ -59,29 +58,6 @@ public abstract class VoiceProxy {
     public abstract Path getDataDirectory();
 
     public abstract List<BackendServer> getBackendServers();
-
-    /**
-     * Determine which SocketAddress to use for backend UDP traffic
-     *
-     * @param playerUUID Which player to find the socket for
-     * @return The sniffed SocketAddress or the game port used by the server
-     */
-    public SocketAddress getBackendUDPSocket(UUID playerUUID) {
-        if (!voiceProxySniffer.isPlayerReady(playerUUID)) {
-            return null;
-        }
-
-        InetSocketAddress backendSocket = getDefaultBackendSocket(playerUUID);
-        if (backendSocket == null) {
-            return null;
-        }
-
-        Integer port = voiceProxySniffer.getServerPort(playerUUID);
-        if (port == null) {
-            port = backendSocket.getPort();
-        }
-        return new InetSocketAddress(backendSocket.getHostString(), port);
-    }
 
     /**
      * Returns which port to use for the VoiceProxyServer
@@ -109,6 +85,12 @@ public abstract class VoiceProxy {
 
         if (voiceProxyServer != null) {
             voiceProxyServer.interrupt();
+            try {
+                // The old server has to release the port before the new one can bind to it
+                voiceProxyServer.join();
+            } catch (InterruptedException e) {
+                voiceChatLogger.error("Interrupted while waiting for the voice chat proxy server to shut down", e);
+            }
         }
         voiceProxyServer = new VoiceProxyServer(this);
         voiceProxyServer.start();
@@ -127,16 +109,25 @@ public abstract class VoiceProxy {
     }
 
     /**
+     * Interrupts the bridge of a given player if one exists
+     *
+     * @param playerUUID The UUID of the player on the proxy
+     */
+    public void disconnectBridge(UUID playerUUID) {
+        if (voiceProxyServer != null) {
+            voiceProxyServer.getVoiceProxyBridgeManager().disconnect(playerUUID);
+        }
+    }
+
+    /**
      * Called whenever a player disconnects from a backend server
      *
      * @param playerUUID The UUID of the player that disconnected from a backend server
      */
     protected void onPlayerServerDisconnected(UUID playerUUID) {
-        if (voiceProxyServer != null) {
-            voiceProxyServer.getVoiceProxyBridgeManager().disconnect(playerUUID);
-        }
+        disconnectBridge(playerUUID);
         voiceProxySniffer.onPlayerServerDisconnect(playerUUID);
-        getLogger().debug("Player {} is has disconnected from backend server, interrupting bridge if it exists", playerUUID);
+        getLogger().debug("Player {} has disconnected from backend server, interrupting bridge if it exists", playerUUID);
     }
 
     protected void onVoicechatCommand(CommandSender sender, String[] args) {
@@ -203,7 +194,7 @@ public abstract class VoiceProxy {
         }
 
         try {
-            PingManager.sendPing(PingManager.withPort(server.getAddress(), voiceChatPort), 10, new PingManager.PingListener() {
+            PingManager.sendPing(server.getAddress(), voiceChatPort, 10, new PingManager.PingListener() {
                 @Override
                 public void onSend(int attempts) {
                     sender.sendMessage(String.format("Sending ping to server '%s'", server.getName()));

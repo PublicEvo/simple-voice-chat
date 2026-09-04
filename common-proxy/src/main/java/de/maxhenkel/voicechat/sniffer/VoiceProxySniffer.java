@@ -2,6 +2,8 @@ package de.maxhenkel.voicechat.sniffer;
 
 import de.maxhenkel.voicechat.VoiceProxy;
 
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.UUID;
@@ -20,9 +22,9 @@ public class VoiceProxySniffer {
     private final Map<UUID, UUID> playerUUIDMap = new ConcurrentHashMap<>();
 
     /**
-     * Maps a given player UUID to the sniffed UDP port.
+     * Maps a given player UUID to the address and sniffed port of the backend voice chat server.
      */
-    private final Map<UUID, Integer> serverUDPPortMap = new ConcurrentHashMap<>();
+    private final Map<UUID, InetSocketAddress> backendSocketMap = new ConcurrentHashMap<>();
 
     /**
      * Maps a given player UUID to the sniffed compatibility version.
@@ -46,23 +48,23 @@ public class VoiceProxySniffer {
     }
 
     /**
-     * Returns the sniffed server UDP port or <code>null</code> if not found.
+     * Returns the address and sniffed port of the backend voice chat server.
      *
      * @param playerUUID the UUID of the player on the proxy
-     * @return the sniffed UDP port or <code>null</code>
+     * @return the backend voice chat socket address, which may be unresolved, <code>null</code> if the secret handshake was not sniffed yet
      */
-    public Integer getServerPort(UUID playerUUID) {
-        return serverUDPPortMap.getOrDefault(playerUUID, null);
+    public InetSocketAddress getBackendSocket(UUID playerUUID) {
+        return backendSocketMap.get(playerUUID);
     }
 
     /**
-     * Checks whether a player has completed the Secret handshake, and we are ready to proxy the connection.
+     * Forgets the backend voice chat socket of a given player.
+     * No packets are bridged for this player until the backend server times them out and sends a new secret.
      *
      * @param playerUUID the UUID of the player on the proxy
-     * @return <code>true</code>> if the secret handshake was captured
      */
-    public boolean isPlayerReady(UUID playerUUID) {
-        return playerUUIDMap.containsValue(playerUUID);
+    public void resetBackendSocket(UUID playerUUID) {
+        backendSocketMap.remove(playerUUID);
     }
 
     /**
@@ -90,9 +92,10 @@ public class VoiceProxySniffer {
      * @param playerUUID the UUID of the player that disconnected
      */
     public void onPlayerServerDisconnect(UUID playerUUID) {
-        serverUDPPortMap.remove(playerUUID);
-        playerUUIDMap.remove(playerUUID);
+        backendSocketMap.remove(playerUUID);
         compatibilityVersionMap.remove(playerUUID);
+        // Remove by the proxies known player UUID e.g., the value of the map
+        playerUUIDMap.values().remove(playerUUID);
     }
 
     /**
@@ -108,8 +111,38 @@ public class VoiceProxySniffer {
         }
         SniffedSecretPacket packet = SniffedSecretPacket.fromBytes(message, compatibilityVersion);
         playerUUIDMap.put(packet.getPlayerUUID(), playerUUID);
-        serverUDPPortMap.put(playerUUID, packet.getServerPort());
+
+        InetSocketAddress backendSocket = createBackendSocket(playerUUID, packet.getServerPort());
+        if (backendSocket == null) {
+            resetBackendSocket(playerUUID);
+        } else {
+            backendSocketMap.put(playerUUID, backendSocket);
+        }
+
+        // The player reconnects with a new socket, so the bridge of the previous session is outdated
+        voiceProxy.disconnectBridge(playerUUID);
         return packet.patch(voiceProxy);
+    }
+
+    /**
+     * Creates the address of the backend voice chat server, which may be unresolved.
+     * Unresolved addresses are resolved by the bridge itself to keep the name resolution off the thread that proxies the voice chat packets.
+     *
+     * @param playerUUID the UUID of the player on the proxy
+     * @param serverPort the sniffed UDP port of the backend voice chat server
+     * @return the backend voice chat socket or <code>null</code> if the player is not connected to a backend server
+     */
+    private InetSocketAddress createBackendSocket(UUID playerUUID, int serverPort) {
+        InetSocketAddress backendSocket = voiceProxy.getDefaultBackendSocket(playerUUID);
+        if (backendSocket == null) {
+            return null;
+        }
+
+        InetAddress backendAddress = backendSocket.getAddress();
+        if (backendAddress == null) {
+            return InetSocketAddress.createUnresolved(backendSocket.getHostString(), serverPort);
+        }
+        return new InetSocketAddress(backendAddress, serverPort);
     }
 
     /**

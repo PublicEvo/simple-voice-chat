@@ -1,1 +1,3 @@
-- Updated to 26.3-pre-1
+- Fixed JoinGroupEvent being fired for wrong password attempts
+- Fixed error when shutting down a server
+- Improved resiliency against mods that change the camera off-thread

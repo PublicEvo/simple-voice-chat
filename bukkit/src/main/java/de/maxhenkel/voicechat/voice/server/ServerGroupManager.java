@@ -60,8 +60,8 @@ public class ServerGroupManager {
 
     public void onPlayerCompatibilityCheckSucceeded(Player player) {
         Voicechat.LOGGER.debug("Synchronizing {} groups with {}", groups.size(), player.getDisplayName());
-        for (Group category : groups.values()) {
-            broadcastAddGroup(category);
+        for (Group group : groups.values()) {
+            NetManager.sendToClient(player, new AddGroupPacket(group.toClientGroup()));
         }
     }
 
@@ -91,19 +91,20 @@ public class ServerGroupManager {
     }
 
     public void joinGroup(@Nullable Group group, Player player, String password) {
+        if (group != null && group.getPassword() != null && !group.getPassword().equals(password)) {
+            NetManager.sendToClient(player, new JoinedGroupPacket(null, true));
+            return;
+        }
+
         if (PluginManager.instance().onJoinGroup(player, group)) {
             return;
         }
+
         if (group == null) {
             NetManager.sendToClient(player, new JoinedGroupPacket(null, false));
             return;
         }
-        if (group.getPassword() != null) {
-            if (!group.getPassword().equals(password)) {
-                NetManager.sendToClient(player, new JoinedGroupPacket(null, true));
-                return;
-            }
-        }
+
         PlayerStateManager manager = getStates();
         manager.setGroup(player, group.getId());
 

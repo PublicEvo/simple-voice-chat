@@ -22,13 +22,15 @@ import org.bukkit.entity.Player;
 
 import javax.annotation.Nullable;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
 public class PluginManager {
 
     private List<VoicechatPlugin> plugins;
     private Map<Class<? extends Event>, List<Consumer<? extends Event>>> events;
-    private Map<UUID, List<PlayerAudioListener>> playerAudioListeners;
+    private final Map<UUID, List<PlayerAudioListener>> playerAudioListeners = new ConcurrentHashMap<>();
 
     public void init() {
         Voicechat.LOGGER.info("Loading plugins");
@@ -44,7 +46,6 @@ public class PluginManager {
         }
         Voicechat.LOGGER.info("Initialized {} plugin(s)", plugins.size());
         gatherEvents();
-        playerAudioListeners = new HashMap<>();
     }
 
     private void gatherEvents() {
@@ -61,7 +62,7 @@ public class PluginManager {
         events = eventBuilder.build();
     }
 
-    public boolean registerAudioListener(AudioListener l) {
+    public synchronized boolean registerAudioListener(AudioListener l) {
         if (!(l instanceof PlayerAudioListener)) {
             return false;
         }
@@ -79,11 +80,11 @@ public class PluginManager {
             return false;
         }
 
-        playerAudioListeners.computeIfAbsent(listener.getPlayerUuid(), k -> new ArrayList<>()).add(listener);
+        playerAudioListeners.computeIfAbsent(listener.getPlayerUuid(), k -> new CopyOnWriteArrayList<>()).add(listener);
         return true;
     }
 
-    public boolean unregisterAudioListener(UUID listenerId) {
+    public synchronized boolean unregisterAudioListener(UUID listenerId) {
         boolean removed = playerAudioListeners
                 .values()
                 .stream()
@@ -289,7 +290,7 @@ public class PluginManager {
 
     private static PluginManager instance;
 
-    public static PluginManager instance() {
+    public static synchronized PluginManager instance() {
         if (instance == null) {
             instance = new PluginManager();
         }
