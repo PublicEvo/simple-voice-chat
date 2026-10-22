@@ -1,3 +1,11 @@
-- Ignore `voice_host` in singleplayer and LAN worlds
-- Improved sound manager error messages
-- Added Thai translation
+- Fixed resource leak when player disconnects
+- Don't spam voice chat errors when OpenAL resources are exhausted
+- Fixed audio playback errors in potential audio buffer overflow scenarios
+- Validate audio frame sizes from plugin audio
+- Fixed race condition when closing speakers
+- Fixed client entity audio channels using channel ID as entity ID
+- Fixed plugin entity sound packets ignoring entity UUID
+- Fixed `isTalking` and `isWhispering` not working for other players in the API
+- Fixed reduced 3D sound and recordings being incorrect in some cases
+- Removed OpenAL reference distance to restore volume curve of older voice chat versions - You might need to adjust volumes a bit
+- Fixed reduced 3D sound being louder than the other 3D sound options

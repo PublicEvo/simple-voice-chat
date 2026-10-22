@@ -4,6 +4,7 @@ import de.maxhenkel.voicechat.Voicechat;
 import de.maxhenkel.voicechat.api.ClientVoicechatSocket;
 import de.maxhenkel.voicechat.api.events.*;
 import de.maxhenkel.voicechat.api.internal.events.*;
+import de.maxhenkel.voicechat.debug.CooldownTimer;
 import de.maxhenkel.voicechat.plugins.impl.ClientVoicechatSocketImpl;
 import de.maxhenkel.voicechat.plugins.impl.PositionImpl;
 import de.maxhenkel.voicechat.plugins.impl.events.*;
@@ -95,19 +96,33 @@ public class ClientPluginManager {
     public short[] onReceiveEntityClientSound(UUID id, UUID entity, short[] rawAudio, boolean whispering, float distance) {
         ClientReceiveSoundEventImpl.EntitySoundImpl clientSoundEvent = new ClientReceiveSoundEventImpl.EntitySoundImpl(id, entity, rawAudio, whispering, distance);
         pluginManager.dispatchEvent(ClientReceiveSoundEvent.EntitySound.class, clientSoundEvent);
-        return clientSoundEvent.getRawAudio();
+        return getValidRawAudio(clientSoundEvent, rawAudio);
     }
 
     public short[] onReceiveLocationalClientSound(UUID id, short[] rawAudio, Vec3 pos, float distance) {
         ClientReceiveSoundEventImpl.LocationalSoundImpl clientSoundEvent = new ClientReceiveSoundEventImpl.LocationalSoundImpl(id, rawAudio, new PositionImpl(pos), distance);
         pluginManager.dispatchEvent(ClientReceiveSoundEvent.LocationalSound.class, clientSoundEvent);
-        return clientSoundEvent.getRawAudio();
+        return getValidRawAudio(clientSoundEvent, rawAudio);
     }
 
     public short[] onReceiveStaticClientSound(UUID id, short[] rawAudio) {
         ClientReceiveSoundEventImpl.StaticSoundImpl clientSoundEvent = new ClientReceiveSoundEventImpl.StaticSoundImpl(id, rawAudio);
         pluginManager.dispatchEvent(ClientReceiveSoundEvent.StaticSound.class, clientSoundEvent);
-        return clientSoundEvent.getRawAudio();
+        return getValidRawAudio(clientSoundEvent, rawAudio);
+    }
+
+    private static short[] getValidRawAudio(ClientReceiveSoundEventImpl event, short[] rawAudio) {
+        short[] processedAudio = event.getRawAudio();
+        if (processedAudio == null) {
+            return new short[0];
+        }
+        if (processedAudio.length != 0 && processedAudio.length != AudioUtils.FRAME_SIZE) {
+            CooldownTimer.run("receive_sound_frame_size", () -> {
+                Voicechat.LOGGER.error("Got invalid audio frame size {}!={}", processedAudio.length, AudioUtils.FRAME_SIZE);
+            });
+            return rawAudio;
+        }
+        return processedAudio;
     }
 
     public void onALSound(int source, @Nullable UUID channelId, @Nullable Vec3 pos, @Nullable String category, Class<? extends OpenALSoundEvent> eventClass) {
