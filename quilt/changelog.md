@@ -1,11 +1,9 @@
-- Fixed resource leak when player disconnects
-- Don't spam voice chat errors when OpenAL resources are exhausted
-- Fixed audio playback errors in potential audio buffer overflow scenarios
-- Validate audio frame sizes from plugin audio
-- Fixed race condition when closing speakers
-- Fixed client entity audio channels using channel ID as entity ID
-- Fixed plugin entity sound packets ignoring entity UUID
-- Fixed `isTalking` and `isWhispering` not working for other players in the API
-- Fixed reduced 3D sound and recordings being incorrect in some cases
-- Removed OpenAL reference distance to restore volume curve of older voice chat versions - You might need to adjust volumes a bit
-- Fixed reduced 3D sound being louder than the other 3D sound options
+- Fixed failing to join a group while in another group desyncing the clients state
+- Fixed group desync when joining a group that was destroyed before joining it
+- Fixed invites with passwords that contained backslashes or quotes not working
+- Instantly disconnect the client on a packet parsing error instead of timing out
+- Don't stop processing when receiving an invalid UDP packet on the client
+- Fixed API returning a nonexistent group as non-null
+- Fixed audio player not being stopped in some cases
+- Fixed removing audio senders not returning if the actual audio sender has been removed
+- Fixed crashes with mods that modify player rendering
